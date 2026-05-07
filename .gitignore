@@ -1,8 +1,0 @@
-*
-!.tmux.conf
-!.config
-.config/*
-!.config/starship.toml
-!.config/nvim
-!.config/zsh
-!.config/llm_recipes/*

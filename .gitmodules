@@ -1,9 +1,0 @@
-[submodule ".config/zsh"]
-	path = .config/zsh
-	url = https://github.com/AeonJh/zdotdir
-[submodule ".config/nvim"]
-	path = .config/nvim
-	url = https://github.com/AeonJh/astronvim_config
-[submodule ".config/local"]
-	path = .config/local
-	url = https://github.com/AeonJh/special-flavour

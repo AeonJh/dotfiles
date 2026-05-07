@@ -1,0 +1,14 @@
+{{- if eq .chezmoi.os "linux" }}
+[".config/zsh"]
+    type = "git-repo"
+    url = "git@github.com:AeonJh/zdotdir.git"
+    refreshPeriod = "72h"
+[".config/nvim"]
+    type = "git-repo"
+    url = "git@github.com:AeonJh/astronvim_config.git"
+    refreshPeriod = "72h"
+[".tmux/plugins/tpm"]
+    type = "git-repo"
+    url = "https://github.com/tmux-plugins/tpm"
+    refreshPeriod = "168h" # once a week
+{{- end }}
