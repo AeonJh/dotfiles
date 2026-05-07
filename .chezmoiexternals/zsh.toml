@@ -1,0 +1,7 @@
+{{ if eq .chezmoi.os "linux" }}
+["dot_config/zsh"]
+    type = "git-repo"
+    url = "git@github.com:AeonJh/zdotdir.git"
+    branch = "main"
+    refreshPeriod = "168h"
+{{ end }}
