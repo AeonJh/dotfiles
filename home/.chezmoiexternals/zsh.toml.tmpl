@@ -1,0 +1,11 @@
+{{ if and (eq .chezmoi.os "linux") .features.zsh }}
+
+[".config/zsh"]
+    type = "git-repo"
+    url = "{{ .repos.zsh }}"
+    branch = "main"
+    refreshPeriod = "72h"
+    # optional: shallow clone
+    # clone.args = ["--depth=1"]
+
+{{ end }}

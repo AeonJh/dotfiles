@@ -1,0 +1,19 @@
+profile = "personal"
+
+[features]
+gui = true
+nvim = true
+tmux = true
+zsh = true
+fonts = true
+proxy = false
+
+[identity]
+name = "AeonJh"
+email = "aeonjh@qq.com"
+
+[editor]
+default = "nvim"
+
+[shell]
+default = "zsh"

@@ -1,7 +1,0 @@
-{{ if eq .chezmoi.os "linux" }}
-[".tmux/plugins/tpm"]
-    type = "git-repo"
-    url = "https://github.com/tmux-plugins/tpm.git"
-    branch = "master"
-    refreshPeriod = "168h"
-{{ end }}

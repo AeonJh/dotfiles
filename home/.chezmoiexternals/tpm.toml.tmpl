@@ -1,0 +1,9 @@
+{{ if and (eq .chezmoi.os "linux") .features.tmux }}
+
+[".config/tmux/plugins/tpm"]
+    type = "git-repo"
+    url = "{{ .repos.third_party.tpm }}"
+    branch = "master"
+    refreshPeriod = "168h"
+
+{{ end }}

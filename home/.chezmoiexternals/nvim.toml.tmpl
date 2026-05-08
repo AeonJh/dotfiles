@@ -1,0 +1,11 @@
+{{ if and (eq .chezmoi.os "linux") .features.nvim }}
+
+[".config/nvim"]
+    type = "git-repo"
+    url = "{{ .repos.nvim }}"
+    branch = "main"
+    refreshPeriod = "72h"
+    # optional: shallow clone
+    # clone.args = ["--depth=1"]
+
+{{ end }}
