@@ -1,5 +1,5 @@
 {{ if eq .chezmoi.os "linux" }}
-["dot_config/nvim"]
+[".config/nvim"]
     type = "git-repo"
     url = "git@github.com:AeonJh/astronvim_config.git"
     branch = "main"

@@ -1,13 +1,7 @@
 {{ if eq .chezmoi.os "linux" }}
-["dot_tmux/plugins/tpm"]
+[".tmux/plugins/tpm"]
     type = "git-repo"
     url = "https://github.com/tmux-plugins/tpm.git"
     branch = "master"
     refreshPeriod = "168h"
-
-["dot_config/tmux/plugins/catppuccin"]
-    type = "git-repo"
-    url = "https://github.com/catppuccin/tmux.git"
-    branch = "main"
-    refreshPeriod = "720h"
 {{ end }}
