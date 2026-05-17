@@ -394,7 +394,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "{ tmp=$(mktemp /tmp/cliproxy-quota.XXXXXX) && if bash \"{{ .chezmoi.homeDir }}/.claude/codex_quota.sh\" > \"$tmp\"; then mv \"$tmp\" \"/tmp/cliproxy-quota.json\"; else rm -f \"$tmp\"; fi; } 2>/dev/null || true",
+            "command": "{ tmp=$(mktemp /tmp/cliproxy-quota.XXXXXX) && if bash \"{{ .chezmoi.homeDir }}/.claude/bin/codex-quota.sh\" > \"$tmp\"; then mv \"$tmp\" \"/tmp/cliproxy-quota.json\"; else rm -f \"$tmp\"; fi; } 2>/dev/null || true",
             "timeout": 30,
             "statusMessage": "Updating CLIProxy quota",
             "async": true
