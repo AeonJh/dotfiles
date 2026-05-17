@@ -1,8 +1,9 @@
 {{ if and (eq .chezmoi.os "linux") .features.zsh }}
+{{ $private := include ".chezmoitemplates/private.toml.age" | decrypt | fromToml }}
 
 [".config/zsh"]
     type = "git-repo"
-    url = "{{ .repos.zsh }}"
+    url = "{{ $private.repos.zsh }}"
     branch = "main"
     refreshPeriod = "72h"
     # optional: shallow clone

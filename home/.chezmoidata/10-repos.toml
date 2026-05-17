@@ -1,6 +1,6 @@
 [repos]
-zsh = "git@github.com:AeonJh/zdotdir.git"
-nvim = "git@github.com:AeonJh/astronvim_config.git"
+# zsh = "git@github.com:YOUR_NAME/zsh-config.git"
+# nvim = "git@github.com:YOUR_NAME/nvim-config.git"
 # scripts = "git@github.com:YOUR_NAME/scripts.git" # placeholder, replace with actual repo when use
 # wallpapers = "git@github.com:YOUR_NAME/wallpapers.git" # placeholder, replace with actual repo when use
 

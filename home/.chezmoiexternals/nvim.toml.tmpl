@@ -1,8 +1,9 @@
 {{ if and (eq .chezmoi.os "linux") .features.nvim }}
+{{ $private := include ".chezmoitemplates/private.toml.age" | decrypt | fromToml }}
 
 [".config/nvim"]
     type = "git-repo"
-    url = "{{ .repos.nvim }}"
+    url = "{{ $private.repos.nvim }}"
     branch = "main"
     refreshPeriod = "72h"
     # optional: shallow clone

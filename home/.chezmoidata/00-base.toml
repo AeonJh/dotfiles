@@ -9,8 +9,8 @@ fonts = true
 proxy = false
 
 [identity]
-name = "AeonJh"
-email = "aeonjh@qq.com"
+name = "User"
+email = "user@example.com"
 
 [editor]
 default = "nvim"
