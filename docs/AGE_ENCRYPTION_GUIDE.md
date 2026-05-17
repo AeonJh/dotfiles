@@ -168,6 +168,124 @@ chezmoi edit-encrypted ~/.local/share/chezmoi/home/.chezmoitemplates/private.tom
 
 不要把 identity 私钥写入 chezmoi 仓库。
 
+## 重新生成 chezmoi age 密钥并重新加密
+
+核心原则：先用旧 identity 解密所有密文，再生成新 identity，更新 recipient，最后用新 recipient 重新加密。不要先覆盖旧 `age.txt`。
+
+### 1. 备份旧 identity
+
+```bash
+old="$HOME/.config/chezmoi/age.txt"
+stamp="$(date +%Y%m%d-%H%M%S)"
+
+cp "$old" "$HOME/.config/chezmoi/age.txt.$stamp.old"
+chmod 600 "$HOME/.config/chezmoi/age.txt.$stamp.old"
+```
+
+旧 identity 在新密文验证通过前不要删除。
+
+### 2. 用旧 identity 解密现有密文
+
+```bash
+repo="$HOME/.local/share/chezmoi"
+tmpdir="$(mktemp -d)"
+chmod 700 "$tmpdir"
+
+chezmoi decrypt "$repo/home/.chezmoitemplates/private.toml.age" > "$tmpdir/private.toml"
+chmod 600 "$tmpdir/private.toml"
+```
+
+### 3. 生成新 identity 和 recipient
+
+```bash
+chezmoi age-keygen -o "$tmpdir/age.txt.new"
+chmod 600 "$tmpdir/age.txt.new"
+
+new_recipient="$(chezmoi age-keygen -y "$tmpdir/age.txt.new")"
+printf '%s\n' "$new_recipient"
+```
+
+输出值就是新的 `<NEW_AGE_PUBLIC_RECIPIENT>`。
+
+### 4. 更新 chezmoi 配置模板
+
+编辑：
+
+```bash
+$EDITOR "$repo/home/.chezmoi.toml.tmpl"
+```
+
+把 `[age]` 中的 recipient 替换为新值：
+
+```toml
+[age]
+identity = "{{ .chezmoi.homeDir }}/.config/chezmoi/age.txt"
+recipient = "<NEW_AGE_PUBLIC_RECIPIENT>"
+```
+
+### 5. 替换本机 identity 并刷新 config
+
+```bash
+mv "$tmpdir/age.txt.new" "$HOME/.config/chezmoi/age.txt"
+chmod 600 "$HOME/.config/chezmoi/age.txt"
+chmod 700 "$HOME/.config/chezmoi"
+
+chezmoi init
+```
+
+确认新配置生效：
+
+```bash
+chezmoi cat-config | grep -E '^(encryption|useBuiltinAge|identity|recipient) =?|^\[age\]'
+```
+
+### 6. 用新 recipient 重新加密
+
+```bash
+chezmoi encrypt < "$tmpdir/private.toml" > "$tmpdir/private.toml.age"
+mv "$tmpdir/private.toml.age" "$repo/home/.chezmoitemplates/private.toml.age"
+```
+
+### 7. 验证新密文
+
+```bash
+chezmoi decrypt "$repo/home/.chezmoitemplates/private.toml.age" >/dev/null
+chezmoi execute-template --file "$repo/home/.chezmoiexternals/nvim.toml.tmpl" >/dev/null
+chezmoi execute-template --file "$repo/home/.chezmoiexternals/zsh.toml.tmpl" >/dev/null
+chezmoi diff --exclude=externals --refresh-externals=never >/dev/null
+```
+
+### 8. 清理临时明文
+
+```bash
+rm -rf "$tmpdir"
+```
+
+### 9. 提交轮换结果
+
+```bash
+git diff --check
+git status --short
+git add home/.chezmoi.toml.tmpl home/.chezmoitemplates/private.toml.age
+git commit -m "chore: rotate chezmoi age key"
+```
+
+### 多个 `.age` 文件时
+
+先列出所有密文：
+
+```bash
+find "$repo/home" -type f -name '*.age' -print
+```
+
+每个文件都要先用旧 key 解密，再换新 key 后重新加密：
+
+```bash
+chezmoi decrypt "$file" > "$tmpdir/$(basename "$file").plain"
+chezmoi encrypt < "$tmpdir/$(basename "$file").plain" > "$file.new"
+mv "$file.new" "$file"
+```
+
 ## 适合使用 age 的场景
 
 | 场景 | 示例 |
