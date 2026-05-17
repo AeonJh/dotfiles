@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+
+{{ $private := include ".chezmoitemplates/private.toml.age" | decrypt | fromToml }}
+
+set -euo pipefail
+
+NVIM_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
+NVIM_DATA="${XDG_DATA_HOME:-$HOME/.local/share}/nvim"
+NVIM_STATE="${XDG_STATE_HOME:-$HOME/.local/state}/nvim"
+NVIM_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/nvim"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/chezmoi"
+MARKER="$STATE_DIR/nvim-plugins-bootstrapped"
+REPO_URL='{{ $private.repos.nvim }}'
+BRANCH="main"
+
+if [[ -f "$MARKER" ]]; then
+  echo "[chezmoi] Neovim already bootstrapped, skip"
+  exit 0
+fi
+
+if ! command -v nvim >/dev/null 2>&1; then
+  echo "[chezmoi] nvim not found, skip Neovim bootstrap"
+  exit 0
+fi
+
+backup_destination() {
+  local path stamp base dest n
+  path="$1"
+  stamp="$2"
+  base="$path.bak"
+  dest="$base"
+
+  if [[ -e "$dest" ]]; then
+    dest="$base.$stamp"
+    n=1
+    while [[ -e "$dest" ]]; do
+      n=$((n + 1))
+      dest="$base.$stamp.$n"
+    done
+  fi
+
+  printf '%s\n' "$dest"
+}
+
+backup_path() {
+  local path stamp backup
+  path="$1"
+  stamp="$2"
+
+  if [[ ! -e "$path" ]]; then
+    return 1
+  fi
+
+  backup="$(backup_destination "$path" "$stamp")"
+  mv "$path" "$backup"
+  echo "[chezmoi] moved $path to $backup"
+}
+
+backup_nvim_paths() {
+  local stamp
+  stamp="$(date +%Y%m%d-%H%M%S)"
+
+  backup_path "$NVIM_CONFIG" "$stamp" || true
+  backup_path "$NVIM_DATA" "$stamp" || true
+  backup_path "$NVIM_STATE" "$stamp" || true
+  backup_path "$NVIM_CACHE" "$stamp" || true
+}
+
+update_nvim_repo() {
+  if ! command -v git >/dev/null 2>&1; then
+    echo "[chezmoi] git not found, skip Neovim config repository update"
+    return 1
+  fi
+
+  backup_nvim_paths
+  mkdir -p "$(dirname "$NVIM_CONFIG")"
+  git clone --quiet --branch "$BRANCH" "$REPO_URL" "$NVIM_CONFIG"
+  echo "[chezmoi] cloned Neovim config repository"
+}
+
+bootstrap_plugins() {
+  if [[ -f "$MARKER" ]]; then
+    echo "[chezmoi] Neovim plugins already bootstrapped, skip"
+    return
+  fi
+
+  if [[ ! -d "$NVIM_CONFIG" ]]; then
+    echo "[chezmoi] $NVIM_CONFIG not found, skip Neovim plugin bootstrap"
+    return
+  fi
+
+  if [[ ! -f "$NVIM_CONFIG/init.lua" && ! -f "$NVIM_CONFIG/init.vim" ]]; then
+    echo "[chezmoi] no init.lua/init.vim found in $NVIM_CONFIG, skip Neovim plugin bootstrap"
+    return
+  fi
+
+  mkdir -p "$STATE_DIR"
+
+  echo "[chezmoi] bootstrapping AstroNvim/Neovim plugins..."
+
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 600s nvim --headless +q
+  else
+    nvim --headless +q
+  fi
+
+  touch "$MARKER"
+  echo "[chezmoi] Neovim plugins bootstrapped"
+}
+
+update_nvim_repo || exit 0
+bootstrap_plugins
