@@ -61,7 +61,7 @@ Never commit:
 - decrypted private TOML
 - real tokens, API keys, account IDs, private repo URLs
 
-Age usage and key rotation notes: [`docs/AGE_ENCRYPTION_GUIDE.md`](docs/AGE_ENCRYPTION_GUIDE.md).
+Age usage and key rotation notes: [English](docs/AGE_ENCRYPTION_GUIDE.md) ([中文](docs/AGE_ENCRYPTION_GUIDE.zh-CN.md)).
 
 ## Layout
 

@@ -1,73 +1,172 @@
-# age 加密日常使用指南
+# Age Encryption Guide
 
-本文记录个人日常/工作中使用 `age` 加密的常用方式。所有公钥、姓名、邮箱、仓库地址、token、密钥均使用占位符，避免把隐私信息写入文档。
+Language: English | [中文](AGE_ENCRYPTION_GUIDE.zh-CN.md)
 
-## 核心概念
+This repository uses `age` through chezmoi to keep private dotfiles data in Git without storing secrets in plaintext.
 
-- `recipient`：age 公钥，可用于加密。可公开分享，但本文仍模糊化记录。
-- `identity`：age 私钥，用于解密。必须保密和备份。
-- 密文文件通常以 `.age` 结尾。
-- 丢失 identity 后，已有密文无法恢复。
+The model is intentionally small:
 
-本机 chezmoi 使用的 identity 路径：
+- Public defaults stay in `.chezmoidata/`.
+- Private template data is encrypted as one TOML file.
+- The age identity stays outside the repository.
+- Chezmoi handles encryption and decryption during normal operations.
 
-```bash
+## Repository layout
+
+```text
+home/.chezmoi.toml.tmpl                 chezmoi config template
+home/.chezmoidata/                      public defaults and feature flags
+home/.chezmoitemplates/private.toml.age encrypted private template data
+home/.chezmoiexternals/                 templates that consume private data
+home/.chezmoiignore                     local secrets excluded from management
+```
+
+The encrypted private data currently backs values such as:
+
+- Git identity details
+- private repository URLs
+- private template variables
+
+Do not put tokens, private keys, account IDs, or private repository URLs in Markdown, plain TOML, shell history, or command arguments.
+
+## Core concepts
+
+| Term | Meaning | Safe to commit? |
+|---|---|---|
+| recipient | Public age recipient used for encryption | Yes |
+| identity | Private age key used for decryption | No |
+| ciphertext | Encrypted `.age` file | Yes |
+| plaintext | Decrypted secret content | No |
+
+The local identity path is:
+
+```text
 ~/.config/chezmoi/age.txt
 ```
 
-本文示例统一使用占位符：
+Losing this file means existing ciphertext cannot be decrypted. Back it up outside this repository.
 
-```text
-<AGE_PUBLIC_RECIPIENT>
+## Chezmoi configuration
+
+The tracked config template enables age:
+
+```toml
+encryption = "age"
+useBuiltinAge = true
+
+[age]
+identity = "{{ .chezmoi.homeDir }}/.config/chezmoi/age.txt"
+recipient = "<AGE_PUBLIC_RECIPIENT>"
 ```
 
-## 安装 age CLI
+`useBuiltinAge = true` keeps the dotfiles usable even when the external `age` CLI is not installed. Installing the CLI is still useful for ad hoc encryption outside chezmoi.
 
-chezmoi 已可使用内置 age。日常手动加密/解密时，建议安装外部 CLI：
+## Bootstrap a new machine
+
+1. Install `chezmoi` and `git`.
+2. Clone or initialize this dotfiles repository.
+3. Restore the age identity from a password manager or offline backup.
+4. Apply dotfiles.
+
+```bash
+chezmoi init <repo>
+install -d -m 700 ~/.config/chezmoi
+install -m 600 /path/to/age.txt ~/.config/chezmoi/age.txt
+chezmoi apply
+```
+
+Verify permissions:
+
+```bash
+stat -c '%a %n' ~/.config/chezmoi ~/.config/chezmoi/age.txt
+```
+
+Expected shape:
+
+```text
+700 /home/<USER>/.config/chezmoi
+600 /home/<USER>/.config/chezmoi/age.txt
+```
+
+## Daily operations
+
+### Check encrypted data without printing it
+
+```bash
+chezmoi decrypt ~/.local/share/chezmoi/home/.chezmoitemplates/private.toml.age >/dev/null
+```
+
+### Render templates that depend on private data
+
+```bash
+repo="$HOME/.local/share/chezmoi"
+
+chezmoi execute-template --file "$repo/home/.chezmoiexternals/nvim.toml.tmpl" >/dev/null
+chezmoi execute-template --file "$repo/home/.chezmoiexternals/zsh.toml.tmpl" >/dev/null
+```
+
+### Preview dotfile changes
+
+Avoid printing private external URLs when not needed:
+
+```bash
+chezmoi diff --exclude=externals --refresh-externals=never
+```
+
+### Edit encrypted private template data
+
+```bash
+chezmoi edit-encrypted ~/.local/share/chezmoi/home/.chezmoitemplates/private.toml.age
+```
+
+Keep this file limited to template data. Use dedicated encrypted target files for larger secrets.
+
+## Add encrypted target files
+
+Use chezmoi's encrypted source-state support for files that should exist in the home directory after apply:
+
+```bash
+chezmoi add --encrypt ~/.ssh/config.private
+chezmoi add --encrypt ~/.config/example/credentials.toml
+```
+
+Chezmoi stores ciphertext in the source tree and decrypts it when applying.
+
+Prefer this for:
+
+- private SSH config fragments
+- API credential files
+- application-specific secret config
+
+Avoid this for:
+
+- the age identity itself
+- secrets better managed by a password manager
+- high-churn data that changes constantly
+
+## Manual age usage
+
+Chezmoi can use built-in age, but the external CLI is useful outside the dotfiles workflow.
+
+Install on Debian/Ubuntu:
 
 ```bash
 sudo apt install age
 ```
 
-## 加密单个文件
-
-加密：
+Encrypt a file:
 
 ```bash
 age -r <AGE_PUBLIC_RECIPIENT> -o secret.txt.age secret.txt
 ```
 
-解密到文件：
-
-```bash
-age -d -i ~/.config/chezmoi/age.txt -o secret.txt secret.txt.age
-```
-
-只查看，不落盘：
+Decrypt to stdout:
 
 ```bash
 age -d -i ~/.config/chezmoi/age.txt secret.txt.age
 ```
 
-## 加密一段文本
-
-适合临时保存 token、恢复码、私有配置片段。
-
-```bash
-age -r <AGE_PUBLIC_RECIPIENT> -o token.txt.age
-```
-
-粘贴内容后按 `Ctrl-D` 结束输入。
-
-解密查看：
-
-```bash
-age -d -i ~/.config/chezmoi/age.txt token.txt.age
-```
-
-## 加密目录备份
-
-把目录打包并直接加密，避免中间明文压缩包落盘：
+Encrypt a directory backup without leaving a plaintext archive:
 
 ```bash
 tar -czf - ~/Documents/private/ \
@@ -75,127 +174,42 @@ tar -czf - ~/Documents/private/ \
   -o private-documents.tar.gz.age
 ```
 
-解密还原：
+Restore it:
 
 ```bash
 age -d -i ~/.config/chezmoi/age.txt private-documents.tar.gz.age \
   | tar -xzf -
 ```
 
-## 加密给多台设备或多人
+## Key rotation
 
-每个设备/用户都有自己的 recipient。加密时写多个 `-r`：
+Rotate only when necessary: identity exposure, device retirement, recipient cleanup, or a planned migration.
 
-```bash
-age \
-  -r <LAPTOP_RECIPIENT> \
-  -r <DESKTOP_RECIPIENT> \
-  -o shared-secret.env.age \
-  shared-secret.env
-```
+Rule: decrypt with the old identity first, then encrypt with the new recipient. Do not overwrite the old identity until new ciphertext is verified.
 
-任一对应 identity 都可解密。
-
-适合：
-
-- 多设备同步密文
-- 团队共享配置密文
-- 仓库中保存加密配置
-
-## 使用 SSH 公钥加密
-
-age 支持 SSH public key：
-
-```bash
-age -R ~/.ssh/id_ed25519.pub -o secret.txt.age secret.txt
-```
-
-解密：
-
-```bash
-age -d -i ~/.ssh/id_ed25519 secret.txt.age
-```
-
-长期使用建议独立 age identity，不要把 SSH key 和 age identity 混为所有用途。
-
-## 使用密码模式
-
-适合临时分享，不适合自动化和长期管理。
-
-加密：
-
-```bash
-age -p -o secret.txt.age secret.txt
-```
-
-解密：
-
-```bash
-age -d -o secret.txt secret.txt.age
-```
-
-## chezmoi 中使用 age
-
-### 加密普通目标文件
-
-例如管理私有配置文件：
-
-```bash
-chezmoi add --encrypt ~/.ssh/config.private
-```
-
-之后仓库里保存密文。应用时：
-
-```bash
-chezmoi apply
-```
-
-### 编辑已加密文件
-
-```bash
-chezmoi edit-encrypted ~/.local/share/chezmoi/home/.chezmoitemplates/private.toml.age
-```
-
-保存后仍是密文。
-
-当前 dotfiles 中适合继续放入该密文 TOML 的内容：
-
-- 私有 repo URL
-- 真实姓名/邮箱
-- 私有 API endpoint
-- 机器专属 token
-- 不想明文进入 Git 的模板变量
-
-不要把 identity 私钥写入 chezmoi 仓库。
-
-## 重新生成 chezmoi age 密钥并重新加密
-
-核心原则：先用旧 identity 解密所有密文，再生成新 identity，更新 recipient，最后用新 recipient 重新加密。不要先覆盖旧 `age.txt`。
-
-### 1. 备份旧 identity
-
-```bash
-old="$HOME/.config/chezmoi/age.txt"
-stamp="$(date +%Y%m%d-%H%M%S)"
-
-cp "$old" "$HOME/.config/chezmoi/age.txt.$stamp.old"
-chmod 600 "$HOME/.config/chezmoi/age.txt.$stamp.old"
-```
-
-旧 identity 在新密文验证通过前不要删除。
-
-### 2. 用旧 identity 解密现有密文
+### 1. Prepare a private workspace
 
 ```bash
 repo="$HOME/.local/share/chezmoi"
 tmpdir="$(mktemp -d)"
 chmod 700 "$tmpdir"
+```
 
+### 2. Preserve the old identity
+
+```bash
+cp ~/.config/chezmoi/age.txt "$tmpdir/age.txt.old"
+chmod 600 "$tmpdir/age.txt.old"
+```
+
+### 3. Decrypt current private data
+
+```bash
 chezmoi decrypt "$repo/home/.chezmoitemplates/private.toml.age" > "$tmpdir/private.toml"
 chmod 600 "$tmpdir/private.toml"
 ```
 
-### 3. 生成新 identity 和 recipient
+### 4. Generate a new identity and recipient
 
 ```bash
 chezmoi age-keygen -o "$tmpdir/age.txt.new"
@@ -205,17 +219,9 @@ new_recipient="$(chezmoi age-keygen -y "$tmpdir/age.txt.new")"
 printf '%s\n' "$new_recipient"
 ```
 
-输出值就是新的 `<NEW_AGE_PUBLIC_RECIPIENT>`。
+### 5. Update chezmoi config
 
-### 4. 更新 chezmoi 配置模板
-
-编辑：
-
-```bash
-$EDITOR "$repo/home/.chezmoi.toml.tmpl"
-```
-
-把 `[age]` 中的 recipient 替换为新值：
+Edit `home/.chezmoi.toml.tmpl` and replace the recipient:
 
 ```toml
 [age]
@@ -223,145 +229,75 @@ identity = "{{ .chezmoi.homeDir }}/.config/chezmoi/age.txt"
 recipient = "<NEW_AGE_PUBLIC_RECIPIENT>"
 ```
 
-### 5. 替换本机 identity 并刷新 config
+Install the new identity locally and regenerate config:
 
 ```bash
-mv "$tmpdir/age.txt.new" "$HOME/.config/chezmoi/age.txt"
-chmod 600 "$HOME/.config/chezmoi/age.txt"
-chmod 700 "$HOME/.config/chezmoi"
-
+install -m 600 "$tmpdir/age.txt.new" ~/.config/chezmoi/age.txt
 chezmoi init
 ```
 
-确认新配置生效：
-
-```bash
-chezmoi cat-config | grep -E '^(encryption|useBuiltinAge|identity|recipient) =?|^\[age\]'
-```
-
-### 6. 用新 recipient 重新加密
+### 6. Re-encrypt private data
 
 ```bash
 chezmoi encrypt < "$tmpdir/private.toml" > "$tmpdir/private.toml.age"
 mv "$tmpdir/private.toml.age" "$repo/home/.chezmoitemplates/private.toml.age"
 ```
 
-### 7. 验证新密文
+For additional `.age` files, decrypt each file with the old identity before switching, then re-encrypt each file with the new recipient.
+
+### 7. Verify
 
 ```bash
 chezmoi decrypt "$repo/home/.chezmoitemplates/private.toml.age" >/dev/null
 chezmoi execute-template --file "$repo/home/.chezmoiexternals/nvim.toml.tmpl" >/dev/null
 chezmoi execute-template --file "$repo/home/.chezmoiexternals/zsh.toml.tmpl" >/dev/null
 chezmoi diff --exclude=externals --refresh-externals=never >/dev/null
+git diff --check
 ```
 
-### 8. 清理临时明文
+Only after successful verification:
 
 ```bash
 rm -rf "$tmpdir"
 ```
 
-### 9. 提交轮换结果
+## Safety checklist
+
+Do:
+
+- Back up `~/.config/chezmoi/age.txt` in a password manager or offline encrypted storage.
+- Keep `~/.config/chezmoi` at mode `700`.
+- Keep `~/.config/chezmoi/age.txt` at mode `600`.
+- Commit ciphertext and public recipients only.
+- Review diffs before committing encrypted workflow changes.
+
+Do not:
+
+- Commit `age.txt` or decrypted private TOML.
+- Share the age identity.
+- Store real secrets in docs, public data files, shell history, or issue trackers.
+- Delete old identities before rotated ciphertext is verified.
+- Treat age as a password manager replacement.
+
+## Troubleshooting
+
+### `no identity matched any of the recipients`
+
+The local identity does not match the recipient used to encrypt the file. Restore the correct `age.txt` or re-encrypt the file for the current recipient.
+
+### `open ~/.config/chezmoi/age.txt: no such file or directory`
+
+Restore the identity file and permissions:
 
 ```bash
-git diff --check
-git status --short
-git add home/.chezmoi.toml.tmpl home/.chezmoitemplates/private.toml.age
-git commit -m "chore: rotate chezmoi age key"
+install -d -m 700 ~/.config/chezmoi
+install -m 600 /path/to/age.txt ~/.config/chezmoi/age.txt
 ```
 
-### 多个 `.age` 文件时
+### Chezmoi warns that the config template changed
 
-先列出所有密文：
+Regenerate the local config from the tracked template:
 
 ```bash
-find "$repo/home" -type f -name '*.age' -print
-```
-
-每个文件都要先用旧 key 解密，再换新 key 后重新加密：
-
-```bash
-chezmoi decrypt "$file" > "$tmpdir/$(basename "$file").plain"
-chezmoi encrypt < "$tmpdir/$(basename "$file").plain" > "$file.new"
-mv "$file.new" "$file"
-```
-
-## 适合使用 age 的场景
-
-| 场景 | 示例 |
-|---|---|
-| dotfiles | chezmoi 私有模板变量、私有 repo URL、身份信息 |
-| 开发 | `.env.age`、API token、部署密钥 |
-| 备份 | 证件扫描件、合同、税务文件、恢复码 |
-| 多设备同步 | 密文进 Git/云盘，identity 分设备保存 |
-| 团队协作 | 给多个 teammate recipients 加密 |
-| 临时分享 | `age -p` 密码模式 |
-| 自动化部署 | CI 中注入 identity 解密配置 |
-
-## 不适合使用 age 的场景
-
-| 不适合 | 原因 |
-|---|---|
-| 替代密码管理器 | 缺少自动填充、分类、轮换、审计体验 |
-| 频繁修改大量文件 | age 是文件加密，不是加密文件系统 |
-| 共享同一个 identity | 无法区分谁解密，泄露后影响所有人 |
-| 只备份密文不备份 identity | identity 丢失后密文不可恢复 |
-
-## 推荐个人工作流
-
-### dotfiles
-
-- 私有模板变量：放入 `home/.chezmoitemplates/private.toml.age`
-- 私有文件：用 `chezmoi add --encrypt <file>`
-- 编辑密文：用 `chezmoi edit-encrypted <source-file>`
-
-### 私人文档备份
-
-```bash
-tar -czf - ~/Documents/private/ \
-  | age -r <AGE_PUBLIC_RECIPIENT> \
-  -o private-backup-$(date +%F).tar.gz.age
-```
-
-### 临时保存 token
-
-```bash
-age -r <AGE_PUBLIC_RECIPIENT> -o token.age
-```
-
-粘贴 token，按 `Ctrl-D`。
-
-### 解密但不落盘
-
-```bash
-age -d -i ~/.config/chezmoi/age.txt token.age
-```
-
-## 安全清单
-
-必须做：
-
-- 备份 `~/.config/chezmoi/age.txt` 到密码管理器、加密 U 盘或离线安全位置。
-- 确认 `~/.config/chezmoi/age.txt` 权限为 `600`。
-- 确认 `~/.config/chezmoi` 权限为 `700`。
-
-不要做：
-
-- 不要 commit `age.txt`。
-- 不要把 identity 发给别人。
-- 不要把真实 token、邮箱、私有仓库地址写入普通 Markdown。
-- 不要只备份密文而不备份 identity。
-- 不要把解密后的明文长期留在仓库或云盘目录。
-
-权限检查：
-
-```bash
-stat -c '%a %n' ~/.config/chezmoi ~/.config/chezmoi/age.txt
-```
-
-期望结果：
-
-```text
-700 /home/<USER>/.config/chezmoi
-600 /home/<USER>/.config/chezmoi/age.txt
+chezmoi init
 ```
