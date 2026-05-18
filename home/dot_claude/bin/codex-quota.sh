@@ -23,7 +23,7 @@ else
   manage_api_key="${CLIPROXY_MANAGE_API_KEY:-}"
   auth_index="${CLIPROXY_AUTH_INDEX:-}"
   account_id="${CLIPROXY_CHATGPT_ACCOUNT_ID:-}"
-  user_agent="${CLIPROXY_CODEX_USER_AGENT:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0}"
+  user_agent="${CLIPROXY_CODEX_USER_AGENT:-codex_cli_rs/0.76.0 (Debian 13.0.0; x86_64) WindowsTerminal}"
 
   if [[ -z "$manage_api_key" || -z "$auth_index" || -z "$account_id" ]]; then
     printf '%s\n' 'Missing CLIPROXY_MANAGE_API_KEY, CLIPROXY_AUTH_INDEX, or CLIPROXY_CHATGPT_ACCOUNT_ID' >&2
