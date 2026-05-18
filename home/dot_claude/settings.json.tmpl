@@ -440,8 +440,33 @@
       }
     }
   },
+  "alwaysThinkingEnabled": true,
   "effortLevel": "xhigh",
   "theme": "dark",
   "preferredNotifChannel": "auto",
-  "autoCompactEnabled": true
+  "autoCompactEnabled": true,
+  "allowedHttpHookUrls": [],
+  "httpHookAllowedEnvVars": [],
+  "enableAllProjectMcpServers": false,
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": false,
+    "filesystem": {
+      "denyRead": [
+        "~/"
+      ],
+      "allowRead": [
+        "{{ .chezmoi.homeDir }}/projects"
+      ],
+      "allowWrite": [
+        "{{ .chezmoi.homeDir }}/projects"
+      ]
+    },
+    "network": {
+      "allowedDomains": [],
+      "deniedDomains": []
+    }
+  }
 }
